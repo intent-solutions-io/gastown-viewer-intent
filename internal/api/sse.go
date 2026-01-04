@@ -148,7 +148,7 @@ func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
 			if !ok {
 				return
 			}
-			w.Write(msg)
+			_, _ = w.Write(msg)
 			flusher.Flush()
 		}
 	}
