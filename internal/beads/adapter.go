@@ -123,53 +123,132 @@ func (a *CLIAdapter) Board(ctx context.Context) (*model.Board, error) {
 
 // Graph implements Adapter.Graph.
 func (a *CLIAdapter) Graph(ctx context.Context) (*model.Graph, error) {
-	// Get all issues for nodes
-	issues, err := a.ListIssues(ctx, model.NewIssueFilter())
+	// Get all issues with full details for nodes and relationships
+	output, err := a.executor.Execute(ctx, a.workDir, "list", "--json")
 	if err != nil {
 		return nil, err
 	}
 
+	bdIssues, err := ParseIssueList(output)
+	if err != nil {
+		return nil, &ParseError{Command: "list", Err: err}
+	}
+
 	graph := model.NewGraph()
-
-	// Build node map and add nodes
 	nodeMap := make(map[string]bool)
-	for _, issue := range issues {
+	edgeSet := make(map[string]bool) // prevent duplicate edges
+
+	// Add all issues as nodes
+	for _, bi := range bdIssues {
 		graph.AddNode(model.GraphNode{
-			ID:       issue.ID,
-			Title:    issue.Title,
-			Status:   issue.Status,
-			Priority: issue.Priority,
+			ID:       bi.ID,
+			Title:    bi.Title,
+			Status:   mapStatus(bi.Status),
+			Priority: mapPriority(bi.Priority),
 		})
-		nodeMap[issue.ID] = true
+		nodeMap[bi.ID] = true
 	}
 
-	// Get blocked info for edges
-	output, err := a.executor.Execute(ctx, a.workDir, "blocked", "--json")
-	if err != nil {
-		// blocked command may fail if no blocked issues - that's ok
-		return &graph, nil
-	}
+	// Extract edges from issue relationships
+	for _, bi := range bdIssues {
+		// Process dependencies (things this issue depends on)
+		for _, dep := range bi.Dependencies {
+			edgeType := mapDepTypeToEdgeType(dep.DepType)
+			edgeKey := bi.ID + "->" + dep.ID + ":" + string(edgeType)
+			if nodeMap[dep.ID] && !edgeSet[edgeKey] {
+				graph.AddEdge(model.GraphEdge{
+					From: dep.ID,
+					To:   bi.ID,
+					Type: edgeType,
+				})
+				edgeSet[edgeKey] = true
+			}
+		}
 
-	blockedIssues, err := ParseBlockedList(output)
-	if err != nil {
-		// Graceful degradation - return graph without edges
-		return &graph, nil
-	}
+		// Process dependents (things that depend on this issue)
+		for _, dep := range bi.Dependents {
+			edgeType := mapDepTypeToEdgeType(dep.DepType)
+			edgeKey := dep.ID + "->" + bi.ID + ":" + string(edgeType)
+			if nodeMap[dep.ID] && !edgeSet[edgeKey] {
+				graph.AddEdge(model.GraphEdge{
+					From: bi.ID,
+					To:   dep.ID,
+					Type: edgeType,
+				})
+				edgeSet[edgeKey] = true
+			}
+		}
 
-	// Add edges from blocked relationships
-	for _, bi := range blockedIssues {
+		// Process blocked_by array for explicit blocking relationships
 		for _, blockerID := range bi.BlockedBy {
-			if nodeMap[blockerID] && nodeMap[bi.ID] {
+			edgeKey := blockerID + "->" + bi.ID + ":blocks"
+			if nodeMap[blockerID] && !edgeSet[edgeKey] {
 				graph.AddEdge(model.GraphEdge{
 					From: blockerID,
 					To:   bi.ID,
 					Type: model.EdgeTypeBlocks,
 				})
+				edgeSet[edgeKey] = true
+			}
+		}
+	}
+
+	// Also get blocked info for any additional edges
+	blockedOutput, err := a.executor.Execute(ctx, a.workDir, "blocked", "--json")
+	if err == nil {
+		blockedIssues, parseErr := ParseBlockedList(blockedOutput)
+		if parseErr == nil {
+			for _, bi := range blockedIssues {
+				for _, blockerID := range bi.BlockedBy {
+					edgeKey := blockerID + "->" + bi.ID + ":blocks"
+					if nodeMap[blockerID] && nodeMap[bi.ID] && !edgeSet[edgeKey] {
+						graph.AddEdge(model.GraphEdge{
+							From: blockerID,
+							To:   bi.ID,
+							Type: model.EdgeTypeBlocks,
+						})
+						edgeSet[edgeKey] = true
+					}
+				}
 			}
 		}
 	}
 
 	return &graph, nil
+}
+
+// mapDepTypeToEdgeType converts bd dependency_type to model.EdgeType.
+func mapDepTypeToEdgeType(depType string) model.EdgeType {
+	switch depType {
+	case "blocks":
+		return model.EdgeTypeBlocks
+	case "blocked_by":
+		return model.EdgeTypeBlockedBy
+	case "parent-child", "parent":
+		return model.EdgeTypeParent
+	case "child":
+		return model.EdgeTypeChild
+	case "waits_for":
+		return model.EdgeTypeWaitsFor
+	case "waited_by":
+		return model.EdgeTypeWaitedBy
+	case "conditional_blocks":
+		return model.EdgeTypeConditional
+	case "relates_to":
+		return model.EdgeTypeRelates
+	case "duplicates":
+		return model.EdgeTypeDuplicates
+	case "mentions":
+		return model.EdgeTypeMentions
+	case "derived_from":
+		return model.EdgeTypeDerivedFrom
+	case "supersedes":
+		return model.EdgeTypeSupersedes
+	case "implements":
+		return model.EdgeTypeImplements
+	default:
+		return model.EdgeTypeBlocks // default to blocks for unknown
+	}
 }
 
 // IsInitialized implements Adapter.IsInitialized.

@@ -47,6 +47,48 @@ export interface HealthResponse {
   error?: string;
 }
 
+// Graph Types
+export type EdgeType =
+  | 'blocks'
+  | 'blocked_by'
+  | 'parent'
+  | 'child'
+  | 'waits_for'
+  | 'waited_by'
+  | 'conditional_blocks'
+  | 'relates_to'
+  | 'duplicates'
+  | 'mentions'
+  | 'derived_from'
+  | 'supersedes'
+  | 'implements'
+  | 'unknown';
+
+export interface GraphNode {
+  id: string;
+  title: string;
+  status: Status;
+  priority: Priority;
+}
+
+export interface GraphEdge {
+  from: string;
+  to: string;
+  type: EdgeType;
+}
+
+export interface GraphStats {
+  node_count: number;
+  edge_count: number;
+  max_depth: number;
+}
+
+export interface GraphResponse {
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+  stats: GraphStats;
+}
+
 export async function fetchHealth(): Promise<HealthResponse> {
   const res = await fetch(`${API_BASE}/health`);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -63,6 +105,27 @@ export async function fetchIssue(id: string): Promise<Issue> {
   const res = await fetch(`${API_BASE}/issues/${encodeURIComponent(id)}`);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
+}
+
+export async function fetchGraph(format: 'json' | 'dot' = 'json'): Promise<GraphResponse | string> {
+  const res = await fetch(`${API_BASE}/graph?format=${format}`);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  if (format === 'dot') {
+    return res.text();
+  }
+  return res.json();
+}
+
+export async function fetchGraphJSON(): Promise<GraphResponse> {
+  const res = await fetch(`${API_BASE}/graph?format=json`);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+export async function fetchGraphDOT(): Promise<string> {
+  const res = await fetch(`${API_BASE}/graph?format=dot`);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.text();
 }
 
 // Gas Town Types

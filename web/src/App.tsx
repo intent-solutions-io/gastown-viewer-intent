@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import type { BoardResponse, Issue, Column, IssueSummary, Town, TownStatus, Agent, Rig } from './api';
 import { fetchBoard, fetchIssue, fetchTown, fetchTownStatus } from './api';
+import DependencyGraph from './components/DependencyGraph';
 import './App.css';
 
-type ViewMode = 'beads' | 'gastown';
+type ViewMode = 'beads' | 'graph' | 'gastown';
 
 function StatusBadge({ status }: { status: string }) {
   const colors: Record<string, string> = {
@@ -350,7 +351,13 @@ function App() {
             className={`tab ${viewMode === 'beads' ? 'active' : ''}`}
             onClick={() => setViewMode('beads')}
           >
-            Beads ({board?.total || 0})
+            Board ({board?.total || 0})
+          </button>
+          <button
+            className={`tab ${viewMode === 'graph' ? 'active' : ''}`}
+            onClick={() => setViewMode('graph')}
+          >
+            Graph
           </button>
           <button
             className={`tab ${viewMode === 'gastown' ? 'active' : ''}`}
@@ -361,7 +368,7 @@ function App() {
         </div>
       </header>
 
-      {viewMode === 'beads' ? (
+      {viewMode === 'beads' && (
         <div className="board">
           {board?.columns.map((column) => (
             <BoardColumn
@@ -371,7 +378,17 @@ function App() {
             />
           ))}
         </div>
-      ) : (
+      )}
+
+      {viewMode === 'graph' && (
+        <DependencyGraph
+          onNodeClick={handleIssueClick}
+          width={window.innerWidth - 32}
+          height={window.innerHeight - 200}
+        />
+      )}
+
+      {viewMode === 'gastown' && (
         <TownView town={town} status={townStatus} />
       )}
 

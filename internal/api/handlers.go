@@ -167,53 +167,21 @@ func (s *Server) handleGraph(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if format == "dot" {
-		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	switch format {
+	case "dot":
+		w.Header().Set("Content-Type", "text/vnd.graphviz; charset=utf-8")
+		w.Header().Set("Content-Disposition", "inline; filename=\"dependencies.dot\"")
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(graphToDOT(graph)))
+		_, _ = w.Write([]byte(graph.ToDOT()))
+		return
+	case "svg":
+		// SVG format placeholder - would require graphviz binary
+		writeError(w, http.StatusNotImplemented, "NOT_IMPLEMENTED",
+			"SVG export requires graphviz. Use DOT format and convert with 'dot -Tsvg'")
 		return
 	}
 
 	writeJSON(w, http.StatusOK, graph)
-}
-
-// graphToDOT converts a graph to DOT format.
-func graphToDOT(g *model.Graph) string {
-	dot := "digraph dependencies {\n"
-	dot += "  rankdir=LR;\n"
-	dot += "  node [shape=box fontname=\"Helvetica\"];\n\n"
-
-	// Add nodes with colors based on status
-	for _, node := range g.Nodes {
-		color := "#FFFFFF" // default white
-		switch node.Status {
-		case model.StatusDone:
-			color = "#90EE90" // light green
-		case model.StatusInProgress:
-			color = "#FFD700" // gold
-		case model.StatusBlocked:
-			color = "#FFB6C1" // light pink
-		}
-		dot += "  \"" + node.ID + "\" [label=\"" + truncate(node.Title, 30) + "\" style=filled fillcolor=\"" + color + "\"];\n"
-	}
-
-	dot += "\n"
-
-	// Add edges
-	for _, edge := range g.Edges {
-		dot += "  \"" + edge.From + "\" -> \"" + edge.To + "\";\n"
-	}
-
-	dot += "}\n"
-	return dot
-}
-
-// truncate shortens a string to maxLen characters.
-func truncate(s string, maxLen int) string {
-	if len(s) <= maxLen {
-		return s
-	}
-	return s[:maxLen-3] + "..."
 }
 
 // ErrorResponse is the standard error response format.
