@@ -154,6 +154,21 @@ function IssueDetail({
 
 // Gas Town Components
 
+function formatTimeAgo(dateStr?: string): string {
+  if (!dateStr) return '';
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+
+  if (diffMins < 1) return 'just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  const diffHours = Math.floor(diffMins / 60);
+  if (diffHours < 24) return `${diffHours}h ago`;
+  const diffDays = Math.floor(diffHours / 24);
+  return `${diffDays}d ago`;
+}
+
 function AgentCard({ agent }: { agent: Agent }) {
   const roleIcons: Record<string, string> = {
     mayor: '👑',
@@ -165,15 +180,32 @@ function AgentCard({ agent }: { agent: Agent }) {
   };
 
   return (
-    <div className="agent-card">
+    <div className={`agent-card ${agent.status === 'stuck' ? 'agent-stuck' : ''}`}>
       <div className="agent-icon">{roleIcons[agent.role] || '🤖'}</div>
       <div className="agent-info">
-        <div className="agent-name">{agent.name}</div>
+        <div className="agent-name">
+          {agent.name}
+          {agent.hook_attached && <span className="hook-indicator" title="Work attached">🪝</span>}
+        </div>
         <div className="agent-meta">
           <StatusBadge status={agent.status} />
           <span className="agent-role">{agent.role}</span>
           {agent.rig && <span className="agent-rig">{agent.rig}</span>}
         </div>
+        {(agent.molecule || agent.last_active) && (
+          <div className="agent-details">
+            {agent.molecule && (
+              <span className="agent-molecule" title="Current molecule">
+                📋 {agent.molecule}
+              </span>
+            )}
+            {agent.last_active && (
+              <span className="agent-activity" title="Last activity">
+                {formatTimeAgo(agent.last_active)}
+              </span>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

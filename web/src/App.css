@@ -433,6 +433,37 @@
   font-family: monospace;
 }
 
+.agent-card.agent-stuck {
+  border-color: #ef4444;
+  background: linear-gradient(135deg, #0f172a 0%, #1a0a0a 100%);
+}
+
+.hook-indicator {
+  margin-left: 0.375rem;
+  font-size: 0.875rem;
+}
+
+.agent-details {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.375rem;
+  font-size: 0.75rem;
+}
+
+.agent-molecule {
+  color: #a78bfa;
+  font-family: monospace;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 150px;
+}
+
+.agent-activity {
+  color: #64748b;
+}
+
 /* Rig Card */
 .rigs-grid {
   display: grid;

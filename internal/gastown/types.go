@@ -56,13 +56,16 @@ type Rig struct {
 
 // Agent represents a Gas Town agent (polecat, witness, etc.).
 type Agent struct {
-	Role       Role        `json:"role"`
-	Name       string      `json:"name"`
-	Rig        string      `json:"rig,omitempty"`
-	Status     AgentStatus `json:"status"`
-	Session    string      `json:"session,omitempty"`
-	Molecule   string      `json:"molecule,omitempty"`
-	LastActive time.Time   `json:"last_active,omitempty"`
+	Role         Role        `json:"role"`
+	Name         string      `json:"name"`
+	Rig          string      `json:"rig,omitempty"`
+	Status       AgentStatus `json:"status"`
+	Session      string      `json:"session,omitempty"`
+	Molecule     string      `json:"molecule,omitempty"`
+	HookAttached bool        `json:"hook_attached,omitempty"`
+	LastActive   time.Time   `json:"last_active,omitempty"`
+	Compaction   int         `json:"compaction,omitempty"`
+	WorkDir      string      `json:"work_dir,omitempty"`
 }
 
 // Address returns the mail-style address for this agent.

@@ -140,6 +140,10 @@ export interface Agent {
   status: AgentStatus;
   session?: string;
   molecule?: string;
+  hook_attached?: boolean;
+  last_active?: string;
+  compaction?: number;
+  work_dir?: string;
 }
 
 export interface Rig {

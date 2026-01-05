@@ -137,20 +137,23 @@ func (a *FSAdapter) Town(ctx context.Context) (*Town, error) {
 
 	// Check mayor
 	if a.dirExists(filepath.Join(a.townRoot, "mayor")) {
-		town.Mayor = &Agent{
-			Role:   RoleMayor,
-			Name:   "mayor",
-			Status: a.agentStatus("gt-mayor", sessions),
+		mayor := &Agent{
+			Role: RoleMayor,
+			Name: "mayor",
 		}
+		a.enrichAgent(mayor, sessions)
+		town.Mayor = mayor
 	}
 
 	// Check deacon (via daemon)
 	if a.daemonRunning() {
-		town.Deacon = &Agent{
+		deacon := &Agent{
 			Role:   RoleDeacon,
 			Name:   "deacon",
 			Status: StatusActive,
 		}
+		a.enrichAgent(deacon, sessions)
+		town.Deacon = deacon
 	}
 
 	// Find rigs
@@ -207,22 +210,24 @@ func (a *FSAdapter) Rigs(ctx context.Context) ([]Rig, error) {
 
 		// Check witness
 		if a.dirExists(filepath.Join(rigPath, "witness")) {
-			rig.Witness = &Agent{
-				Role:   RoleWitness,
-				Name:   "witness",
-				Rig:    name,
-				Status: a.agentStatus(fmt.Sprintf("gt-%s-witness", name), sessions),
+			witness := &Agent{
+				Role: RoleWitness,
+				Name: "witness",
+				Rig:  name,
 			}
+			a.enrichAgent(witness, sessions)
+			rig.Witness = witness
 		}
 
 		// Check refinery
 		if a.dirExists(filepath.Join(rigPath, "refinery")) {
-			rig.Refinery = &Agent{
-				Role:   RoleRefinery,
-				Name:   "refinery",
-				Rig:    name,
-				Status: a.agentStatus(fmt.Sprintf("gt-%s-refinery", name), sessions),
+			refinery := &Agent{
+				Role: RoleRefinery,
+				Name: "refinery",
+				Rig:  name,
 			}
+			a.enrichAgent(refinery, sessions)
+			rig.Refinery = refinery
 		}
 
 		// Find polecats
@@ -232,12 +237,13 @@ func (a *FSAdapter) Rigs(ctx context.Context) ([]Rig, error) {
 			if err == nil {
 				for _, pe := range pEntries {
 					if pe.IsDir() && !strings.HasPrefix(pe.Name(), ".") {
-						rig.Polecats = append(rig.Polecats, Agent{
-							Role:   RolePolecat,
-							Name:   pe.Name(),
-							Rig:    name,
-							Status: a.agentStatus(fmt.Sprintf("gt-%s-%s", name, pe.Name()), sessions),
-						})
+						polecat := Agent{
+							Role: RolePolecat,
+							Name: pe.Name(),
+							Rig:  name,
+						}
+						a.enrichAgent(&polecat, sessions)
+						rig.Polecats = append(rig.Polecats, polecat)
 					}
 				}
 			}
@@ -250,12 +256,13 @@ func (a *FSAdapter) Rigs(ctx context.Context) ([]Rig, error) {
 			if err == nil {
 				for _, ce := range cEntries {
 					if ce.IsDir() && !strings.HasPrefix(ce.Name(), ".") {
-						rig.Crew = append(rig.Crew, Agent{
-							Role:   RoleCrew,
-							Name:   ce.Name(),
-							Rig:    name,
-							Status: a.agentStatus(fmt.Sprintf("gt-%s-crew-%s", name, ce.Name()), sessions),
-						})
+						crew := Agent{
+							Role: RoleCrew,
+							Name: ce.Name(),
+							Rig:  name,
+						}
+						a.enrichAgent(&crew, sessions)
+						rig.Crew = append(rig.Crew, crew)
 					}
 				}
 			}
@@ -401,13 +408,6 @@ func (a *FSAdapter) getTmuxSessions() map[string]bool {
 	return sessions
 }
 
-func (a *FSAdapter) agentStatus(sessionName string, sessions map[string]bool) AgentStatus {
-	if sessions[sessionName] {
-		return StatusActive
-	}
-	return StatusOffline
-}
-
 func (a *FSAdapter) daemonRunning() bool {
 	// Check if gt daemon is running by looking for pid file or process
 	pidFile := filepath.Join(a.townRoot, "mayor", "daemon.pid")
@@ -441,4 +441,121 @@ func (a *FSAdapter) LastActivity(rigName, agentName string) time.Time {
 		return time.Time{}
 	}
 	return info.ModTime()
+}
+
+// getAgentWorkDir returns the working directory for an agent.
+func (a *FSAdapter) getAgentWorkDir(rigName string, role Role, name string) string {
+	switch role {
+	case RoleMayor:
+		return filepath.Join(a.townRoot, "mayor")
+	case RoleDeacon:
+		return filepath.Join(a.townRoot, "mayor") // Deacon runs from mayor dir
+	case RoleWitness:
+		return filepath.Join(a.townRoot, rigName, "witness")
+	case RoleRefinery:
+		return filepath.Join(a.townRoot, rigName, "refinery")
+	case RolePolecat:
+		return filepath.Join(a.townRoot, rigName, "polecats", name)
+	case RoleCrew:
+		return filepath.Join(a.townRoot, rigName, "crew", name)
+	default:
+		return ""
+	}
+}
+
+// enrichAgent adds session, molecule, and hook info to an agent.
+func (a *FSAdapter) enrichAgent(agent *Agent, sessions map[string]bool) {
+	workDir := a.getAgentWorkDir(agent.Rig, agent.Role, agent.Name)
+	if workDir == "" {
+		return
+	}
+	agent.WorkDir = workDir
+
+	// Get session name
+	sessionName := a.getSessionName(agent)
+	agent.Session = sessionName
+
+	// Check if session is active
+	if sessions[sessionName] {
+		agent.Status = StatusActive
+	} else {
+		agent.Status = StatusOffline
+	}
+
+	// Read seance file for compaction level
+	seancePath := filepath.Join(workDir, ".claude", "seance.json")
+	if data, err := os.ReadFile(seancePath); err == nil {
+		var seance struct {
+			Compaction int    `json:"compaction"`
+			Molecule   string `json:"molecule,omitempty"`
+		}
+		if json.Unmarshal(data, &seance) == nil {
+			agent.Compaction = seance.Compaction
+			if seance.Molecule != "" {
+				agent.Molecule = seance.Molecule
+			}
+		}
+	}
+
+	// Check hook for attached molecule
+	hookPath := filepath.Join(workDir, ".claude", "hook.json")
+	if data, err := os.ReadFile(hookPath); err == nil {
+		var hook struct {
+			Molecule string `json:"molecule,omitempty"`
+			Attached bool   `json:"attached,omitempty"`
+		}
+		if json.Unmarshal(data, &hook) == nil {
+			agent.HookAttached = hook.Attached || hook.Molecule != ""
+			if hook.Molecule != "" {
+				agent.Molecule = hook.Molecule
+			}
+		}
+	}
+
+	// Also check molecule.json directly
+	molPath := filepath.Join(workDir, ".beads", "molecule.json")
+	if data, err := os.ReadFile(molPath); err == nil {
+		var mol struct {
+			ID    string `json:"id"`
+			Title string `json:"title"`
+		}
+		if json.Unmarshal(data, &mol) == nil && mol.ID != "" {
+			agent.Molecule = mol.ID
+			agent.HookAttached = true
+		}
+	}
+
+	// Get last activity time
+	if info, err := os.Stat(workDir); err == nil {
+		agent.LastActive = info.ModTime()
+	}
+
+	// Detect stuck status: active session but no activity for 10+ minutes
+	if agent.Status == StatusActive && !agent.LastActive.IsZero() {
+		if time.Since(agent.LastActive) > 10*time.Minute {
+			agent.Status = StatusStuck
+		} else if time.Since(agent.LastActive) > 2*time.Minute && !agent.HookAttached {
+			agent.Status = StatusIdle
+		}
+	}
+}
+
+// getSessionName returns the expected tmux session name for an agent.
+func (a *FSAdapter) getSessionName(agent *Agent) string {
+	switch agent.Role {
+	case RoleMayor:
+		return "gt-mayor"
+	case RoleDeacon:
+		return "gt-deacon"
+	case RoleWitness:
+		return fmt.Sprintf("gt-%s-witness", agent.Rig)
+	case RoleRefinery:
+		return fmt.Sprintf("gt-%s-refinery", agent.Rig)
+	case RolePolecat:
+		return fmt.Sprintf("gt-%s-%s", agent.Rig, agent.Name)
+	case RoleCrew:
+		return fmt.Sprintf("gt-%s-crew-%s", agent.Rig, agent.Name)
+	default:
+		return ""
+	}
 }
