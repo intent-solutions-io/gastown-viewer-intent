@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import type { BoardResponse, Issue, Column, IssueSummary, Town, TownStatus, Agent, Rig } from './api';
-import { fetchBoard, fetchIssue, fetchTown, fetchTownStatus } from './api';
+import type { BoardResponse, Issue, Column, IssueSummary, Town, TownStatus, Agent, Rig, Molecule } from './api';
+import { fetchBoard, fetchIssue, fetchTown, fetchTownStatus, fetchMolecules } from './api';
 import DependencyGraph from './components/DependencyGraph';
 import './App.css';
 
@@ -237,7 +237,86 @@ function RigCard({ rig }: { rig: Rig }) {
   );
 }
 
-function TownView({ town, status }: { town: Town | null; status: TownStatus | null }) {
+function MoleculeCard({ molecule }: { molecule: Molecule }) {
+  const statusIcons: Record<string, string> = {
+    pending: '⏳',
+    in_progress: '🔄',
+    complete: '✅',
+    blocked: '🚫',
+    failed: '❌',
+  };
+
+  const progressPercent = molecule.total > 0
+    ? Math.round((molecule.progress / molecule.total) * 100)
+    : 0;
+
+  return (
+    <div className={`molecule-card ${molecule.status === 'blocked' || molecule.status === 'failed' ? 'molecule-blocked' : ''}`}>
+      <div className="molecule-header">
+        <span className="molecule-icon">{statusIcons[molecule.status] || '📋'}</span>
+        <div className="molecule-title-area">
+          <div className="molecule-title">{molecule.title || molecule.id}</div>
+          {molecule.formula && (
+            <span className="molecule-formula" title="Formula template">
+              📐 {molecule.formula}
+            </span>
+          )}
+        </div>
+      </div>
+
+      <div className="molecule-progress-bar">
+        <div
+          className="molecule-progress-fill"
+          style={{ width: `${progressPercent}%` }}
+        />
+      </div>
+
+      <div className="molecule-meta">
+        <StatusBadge status={molecule.status} />
+        <span className="molecule-step-count">
+          Step {molecule.current_step + 1} of {molecule.total}
+        </span>
+        <span className="molecule-progress-pct">{progressPercent}%</span>
+      </div>
+
+      {molecule.agent && (
+        <div className="molecule-context">
+          <span className="molecule-agent" title="Assigned agent">
+            🤖 {molecule.agent}
+          </span>
+          {molecule.rig && (
+            <span className="molecule-rig" title="Rig">
+              📦 {molecule.rig}
+            </span>
+          )}
+        </div>
+      )}
+
+      {molecule.steps && molecule.steps.length > 0 && (
+        <div className="molecule-steps">
+          {molecule.steps.slice(0, 5).map((step, i) => (
+            <div
+              key={step.id || i}
+              className={`molecule-step ${step.status === 'complete' || step.status === 'done' ? 'step-complete' : ''} ${i === molecule.current_step ? 'step-current' : ''}`}
+            >
+              <span className="step-indicator">
+                {step.status === 'complete' || step.status === 'done' ? '✓' : i === molecule.current_step ? '▸' : '○'}
+              </span>
+              <span className="step-description">{step.description || step.id}</span>
+            </div>
+          ))}
+          {molecule.steps.length > 5 && (
+            <div className="molecule-step-more">
+              +{molecule.steps.length - 5} more steps
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TownView({ town, status, molecules }: { town: Town | null; status: TownStatus | null; molecules: Molecule[] }) {
   if (!town) {
     return (
       <div className="town-empty">
@@ -268,7 +347,23 @@ function TownView({ town, status }: { town: Town | null; status: TownStatus | nu
           <span className="status-label">Convoys</span>
           <span className="status-value">{status?.open_convoys || 0}</span>
         </div>
+        <div className="status-item">
+          <span className="status-label">Molecules</span>
+          <span className="status-value">{molecules.length}</span>
+        </div>
       </div>
+
+      {/* Active Molecules */}
+      {molecules.length > 0 && (
+        <div className="town-molecules">
+          <h3>Active Molecules ({molecules.length})</h3>
+          <div className="molecules-grid">
+            {molecules.map((mol) => (
+              <MoleculeCard key={mol.id} molecule={mol} />
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Town-level agents */}
       <div className="town-agents">
@@ -318,6 +413,7 @@ function App() {
   const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
   const [town, setTown] = useState<Town | null>(null);
   const [townStatus, setTownStatus] = useState<TownStatus | null>(null);
+  const [molecules, setMolecules] = useState<Molecule[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -329,14 +425,16 @@ function App() {
 
   async function loadData() {
     try {
-      const [boardData, townData, statusData] = await Promise.all([
+      const [boardData, townData, statusData, moleculesData] = await Promise.all([
         fetchBoard().catch(() => null),
         fetchTown().catch(() => null),
         fetchTownStatus().catch(() => null),
+        fetchMolecules().catch(() => null),
       ]);
       if (boardData) setBoard(boardData);
       setTown(townData);
       setTownStatus(statusData);
+      setMolecules(moleculesData?.molecules || []);
       setError(null);
     } catch {
       setError('Failed to connect to daemon. Is gvid running on localhost:7070?');
@@ -421,7 +519,7 @@ function App() {
       )}
 
       {viewMode === 'gastown' && (
-        <TownView town={town} status={townStatus} />
+        <TownView town={town} status={townStatus} molecules={molecules} />
       )}
 
       {selectedIssue && (

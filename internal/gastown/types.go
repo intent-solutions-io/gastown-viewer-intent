@@ -113,22 +113,42 @@ type Message struct {
 	Type      string    `json:"type"`
 }
 
+// MoleculeStatus represents the status of a molecule.
+type MoleculeStatus string
+
+const (
+	MolStatusPending    MoleculeStatus = "pending"
+	MolStatusInProgress MoleculeStatus = "in_progress"
+	MolStatusComplete   MoleculeStatus = "complete"
+	MolStatusBlocked    MoleculeStatus = "blocked"
+	MolStatusFailed     MoleculeStatus = "failed"
+)
+
 // Molecule represents a workflow instance.
 type Molecule struct {
-	ID       string         `json:"id"`
-	Title    string         `json:"title"`
-	Status   string         `json:"status"`
-	Steps    []MoleculeStep `json:"steps"`
-	Progress int            `json:"progress"`
-	Total    int            `json:"total"`
+	ID          string         `json:"id"`
+	Title       string         `json:"title"`
+	Status      MoleculeStatus `json:"status"`
+	Steps       []MoleculeStep `json:"steps"`
+	CurrentStep int            `json:"current_step"`
+	Progress    int            `json:"progress"`
+	Total       int            `json:"total"`
+	Formula     string         `json:"formula,omitempty"`
+	Agent       string         `json:"agent,omitempty"`
+	Rig         string         `json:"rig,omitempty"`
+	CreatedAt   time.Time      `json:"created_at,omitempty"`
+	UpdatedAt   time.Time      `json:"updated_at,omitempty"`
 }
 
 // MoleculeStep represents a step in a molecule workflow.
 type MoleculeStep struct {
-	ID          string `json:"id"`
-	Description string `json:"description"`
-	Status      string `json:"status"`
+	Index       int      `json:"index"`
+	ID          string   `json:"id"`
+	Description string   `json:"description"`
+	Status      string   `json:"status"`
 	Needs       []string `json:"needs,omitempty"`
+	StartedAt   *time.Time `json:"started_at,omitempty"`
+	CompletedAt *time.Time `json:"completed_at,omitempty"`
 }
 
 // TownStatus provides a summary of town health.

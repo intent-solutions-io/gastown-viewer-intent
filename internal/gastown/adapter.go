@@ -31,6 +31,12 @@ type Adapter interface {
 	// Convoys returns active convoys.
 	Convoys(ctx context.Context) ([]Convoy, error)
 
+	// Molecules returns all active molecules across all agents.
+	Molecules(ctx context.Context) ([]Molecule, error)
+
+	// Molecule returns a specific molecule by ID.
+	Molecule(ctx context.Context, id string) (*Molecule, error)
+
 	// Mail returns messages for an agent address.
 	Mail(ctx context.Context, address string) ([]Message, error)
 }
@@ -538,6 +544,143 @@ func (a *FSAdapter) enrichAgent(agent *Agent, sessions map[string]bool) {
 			agent.Status = StatusIdle
 		}
 	}
+}
+
+// Molecules returns all active molecules across all agents.
+func (a *FSAdapter) Molecules(ctx context.Context) ([]Molecule, error) {
+	var molecules []Molecule
+
+	// Collect all agent work directories
+	agents, err := a.Agents(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	seen := make(map[string]bool)
+
+	for _, agent := range agents {
+		if agent.WorkDir == "" {
+			continue
+		}
+
+		// Check for molecule.json in .beads/
+		molPath := filepath.Join(agent.WorkDir, ".beads", "molecule.json")
+		mol, err := a.parseMoleculeFile(molPath)
+		if err != nil || mol == nil {
+			continue
+		}
+
+		// Avoid duplicates
+		if seen[mol.ID] {
+			continue
+		}
+		seen[mol.ID] = true
+
+		// Set agent/rig context
+		mol.Agent = agent.Name
+		mol.Rig = agent.Rig
+
+		molecules = append(molecules, *mol)
+	}
+
+	return molecules, nil
+}
+
+// Molecule returns a specific molecule by ID.
+func (a *FSAdapter) Molecule(ctx context.Context, id string) (*Molecule, error) {
+	molecules, err := a.Molecules(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, mol := range molecules {
+		if mol.ID == id {
+			return &mol, nil
+		}
+	}
+
+	return nil, fmt.Errorf("molecule not found: %s", id)
+}
+
+// parseMoleculeFile reads and parses a molecule.json file.
+func (a *FSAdapter) parseMoleculeFile(path string) (*Molecule, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+
+	var raw struct {
+		ID          string `json:"id"`
+		Title       string `json:"title"`
+		Status      string `json:"status"`
+		Formula     string `json:"formula,omitempty"`
+		CurrentStep int    `json:"current_step"`
+		Steps       []struct {
+			Index       int        `json:"index"`
+			ID          string     `json:"id"`
+			Description string     `json:"description"`
+			Status      string     `json:"status"`
+			Needs       []string   `json:"needs,omitempty"`
+			StartedAt   *time.Time `json:"started_at,omitempty"`
+			CompletedAt *time.Time `json:"completed_at,omitempty"`
+		} `json:"steps,omitempty"`
+		CreatedAt time.Time `json:"created_at,omitempty"`
+		UpdatedAt time.Time `json:"updated_at,omitempty"`
+	}
+
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil, err
+	}
+
+	if raw.ID == "" {
+		return nil, nil
+	}
+
+	// Convert status string to MoleculeStatus
+	status := MolStatusPending
+	switch raw.Status {
+	case "in_progress":
+		status = MolStatusInProgress
+	case "complete", "completed":
+		status = MolStatusComplete
+	case "blocked":
+		status = MolStatusBlocked
+	case "failed":
+		status = MolStatusFailed
+	}
+
+	mol := &Molecule{
+		ID:          raw.ID,
+		Title:       raw.Title,
+		Status:      status,
+		Formula:     raw.Formula,
+		CurrentStep: raw.CurrentStep,
+		CreatedAt:   raw.CreatedAt,
+		UpdatedAt:   raw.UpdatedAt,
+	}
+
+	// Convert steps
+	for _, s := range raw.Steps {
+		mol.Steps = append(mol.Steps, MoleculeStep{
+			Index:       s.Index,
+			ID:          s.ID,
+			Description: s.Description,
+			Status:      s.Status,
+			Needs:       s.Needs,
+			StartedAt:   s.StartedAt,
+			CompletedAt: s.CompletedAt,
+		})
+	}
+
+	// Calculate progress
+	mol.Total = len(mol.Steps)
+	for _, step := range mol.Steps {
+		if step.Status == "complete" || step.Status == "completed" || step.Status == "done" {
+			mol.Progress++
+		}
+	}
+
+	return mol, nil
 }
 
 // getSessionName returns the expected tmux session name for an agent.

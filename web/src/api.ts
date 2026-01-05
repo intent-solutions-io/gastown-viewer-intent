@@ -232,3 +232,55 @@ export async function fetchConvoys(): Promise<ConvoysResponse> {
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
 }
+
+// Molecule Types
+
+export type MoleculeStatus = 'pending' | 'in_progress' | 'complete' | 'blocked' | 'failed';
+
+export interface MoleculeStep {
+  index: number;
+  id: string;
+  description: string;
+  status: string;
+  needs?: string[];
+  started_at?: string;
+  completed_at?: string;
+}
+
+export interface Molecule {
+  id: string;
+  title: string;
+  status: MoleculeStatus;
+  steps: MoleculeStep[];
+  current_step: number;
+  progress: number;
+  total: number;
+  formula?: string;
+  agent?: string;
+  rig?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface MoleculesResponse {
+  molecules: Molecule[];
+  total: number;
+  in_progress: number;
+  pending: number;
+  complete: number;
+  blocked: number;
+}
+
+// Molecule API calls
+
+export async function fetchMolecules(): Promise<MoleculesResponse> {
+  const res = await fetch(`${API_BASE}/town/molecules`);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+export async function fetchMolecule(id: string): Promise<Molecule> {
+  const res = await fetch(`${API_BASE}/town/molecules/${encodeURIComponent(id)}`);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}

@@ -132,3 +132,57 @@ func (s *Server) handleMail(w http.ResponseWriter, r *http.Request) {
 		"total":    len(messages),
 	})
 }
+
+// handleMolecules handles GET /api/v1/town/molecules.
+func (s *Server) handleMolecules(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	molecules, err := s.gtAdapter.Molecules(ctx)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "GASTOWN_ERROR", err.Error())
+		return
+	}
+
+	// Group by status
+	var inProgress, pending, complete, blocked int
+	for _, m := range molecules {
+		switch m.Status {
+		case gastown.MolStatusInProgress:
+			inProgress++
+		case gastown.MolStatusPending:
+			pending++
+		case gastown.MolStatusComplete:
+			complete++
+		case gastown.MolStatusBlocked, gastown.MolStatusFailed:
+			blocked++
+		}
+	}
+
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"molecules":   molecules,
+		"total":       len(molecules),
+		"in_progress": inProgress,
+		"pending":     pending,
+		"complete":    complete,
+		"blocked":     blocked,
+	})
+}
+
+// handleMolecule handles GET /api/v1/town/molecules/{id}.
+func (s *Server) handleMolecule(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	id := r.PathValue("id")
+
+	if id == "" {
+		writeError(w, http.StatusBadRequest, "INVALID_PARAM", "molecule ID required")
+		return
+	}
+
+	molecule, err := s.gtAdapter.Molecule(ctx, id)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "MOLECULE_NOT_FOUND", err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, molecule)
+}

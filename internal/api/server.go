@@ -86,6 +86,10 @@ func (s *Server) registerRoutes() {
 	// Gas Town - Convoys
 	s.mux.HandleFunc("GET /api/v1/town/convoys", s.handleConvoys)
 
+	// Gas Town - Molecules
+	s.mux.HandleFunc("GET /api/v1/town/molecules", s.handleMolecules)
+	s.mux.HandleFunc("GET /api/v1/town/molecules/{id}", s.handleMolecule)
+
 	// Gas Town - Mail
 	s.mux.HandleFunc("GET /api/v1/town/mail/{address}", s.handleMail)
 }
