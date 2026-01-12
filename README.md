@@ -2,11 +2,41 @@
 
 > Mission Control dashboard for [Gastown](https://github.com/steveyegge/gastown) multi-agent workspaces.
 
+[![Release](https://img.shields.io/github/v/release/intent-solutions-io/gastown-viewer-intent)](https://github.com/intent-solutions-io/gastown-viewer-intent/releases)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
+## What's New in v0.2.0
+
+Three best-in-class features that set this apart from any open-source alternative:
+
+### Interactive Dependency Graph
+- D3.js force-directed visualization of all **14 Beads edge types**
+- Click nodes to view issue details
+- Drag, zoom, and pan interactions
+- Export to DOT format for Graphviz
+
+### Smart Agent Status Dashboard
+- Real-time agent status with intelligent detection
+- **Active** / **Idle** (2+ min) / **Stuck** (10+ min) states
+- Tmux session integration
+- Hook attachment indicators showing active work
+- Current molecule and last activity timestamps
+
+### Molecule Progress Tracker
+- Workflow execution visibility across agents
+- Visual progress bar with percentage
+- Step-by-step completion tracking
+- Formula template and assigned agent context
+
+---
+
 ## What It Does
 
 **Gastown Viewer** provides real-time visibility into your Gas Town agent swarms:
 
 - **Agent Dashboard**: See all agents (Mayor, Deacon, Witness, Refinery, Polecats, Crew) with live status
+- **Dependency Graph**: Interactive visualization of issue relationships
+- **Molecule Tracking**: Monitor workflow progress across agents
 - **Rig Overview**: Monitor project rigs with agent health and activity
 - **Convoy Tracking**: Track batch work progress across rigs
 - **Beads Integration**: Kanban board view of issues managed by your agents
@@ -14,22 +44,46 @@
 
 ## Quickstart
 
+### Install
+
+**Homebrew (macOS/Linux)**
+```bash
+brew tap intent-solutions-io/tap
+brew install gvid
+```
+
+**Direct Download**
+
+Download binaries from [Releases](https://github.com/intent-solutions-io/gastown-viewer-intent/releases).
+
+**From Source**
+```bash
+go install github.com/intent-solutions-io/gastown-viewer-intent/cmd/gvid@latest
+```
+
 ### Prerequisites
 
-- Go 1.22+
-- Node.js 20+
 - [Gastown](https://github.com/steveyegge/gastown) installed at `~/gt`
 - [Beads](https://github.com/steveyegge/beads) (`bd` CLI in PATH)
+
+For development:
+- Go 1.22+
+- Node.js 20+
 
 ### Run
 
 ```bash
-# Start daemon + web UI
-make dev
+# If installed via brew/binary:
+gvid                          # Start daemon on :7070
 
-# Open http://localhost:5173
-# Toggle between "Beads" and "Gas Town" tabs
+# For development (daemon + web UI with hot reload):
+make dev                      # Opens http://localhost:5173
 ```
+
+Open http://localhost:5173 and switch between tabs:
+- **Board** - Kanban view of Beads issues
+- **Graph** - Interactive dependency visualization
+- **Gas Town** - Agent dashboard with molecules
 
 ### Verify
 
@@ -39,10 +93,16 @@ curl http://localhost:7070/api/v1/health
 
 # Gas Town status
 curl http://localhost:7070/api/v1/town/status
-# {"healthy":true,"active_agents":5,"total_agents":8,"active_rigs":2}
+# {"healthy":true,"active_agents":5,"total_agents":8,"active_rigs":2,"molecules":3}
 
-# List agents
+# List agents with status
 curl http://localhost:7070/api/v1/town/agents
+
+# Get dependency graph as DOT
+curl "http://localhost:7070/api/v1/graph?format=dot" | dot -Tsvg > deps.svg
+
+# List active molecules
+curl http://localhost:7070/api/v1/town/molecules
 ```
 
 ## Architecture
@@ -94,6 +154,8 @@ curl http://localhost:7070/api/v1/town/agents
 | **Polecats** | Transient workers spawned for specific tasks |
 | **Crew** | Persistent user-managed workers in a rig |
 | **Convoy** | Batch work tracking across multiple rigs |
+| **Molecule** | Workflow instance with steps, assigned to an agent |
+| **Formula** | Template defining molecule structure and steps |
 
 ## API Endpoints
 
@@ -107,6 +169,8 @@ curl http://localhost:7070/api/v1/town/agents
 | `GET /api/v1/town/rigs/:name` | Single rig details |
 | `GET /api/v1/town/agents` | All agents with status |
 | `GET /api/v1/town/convoys` | Active convoys |
+| `GET /api/v1/town/molecules` | Active molecules across agents |
+| `GET /api/v1/town/molecules/:id` | Single molecule details |
 | `GET /api/v1/town/mail/:address` | Agent mail inbox |
 
 ### Beads (Issues)
@@ -117,7 +181,8 @@ curl http://localhost:7070/api/v1/town/agents
 | `GET /api/v1/board` | Kanban board view |
 | `GET /api/v1/issues` | List issues |
 | `GET /api/v1/issues/:id` | Issue details |
-| `GET /api/v1/graph` | Dependency graph |
+| `GET /api/v1/graph?format=json` | Dependency graph (JSON) |
+| `GET /api/v1/graph?format=dot` | Dependency graph (Graphviz DOT) |
 | `GET /api/v1/events` | SSE event stream |
 
 ## Configuration
