@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import type { BoardResponse, Issue, Column, IssueSummary, Town, TownStatus, Agent, Rig, Molecule } from './api';
-import { fetchBoard, fetchIssue, fetchTown, fetchTownStatus, fetchMolecules } from './api';
+import type { BoardResponse, Issue, Column, IssueSummary, Town, TownStatus, Agent, Rig, Molecule, Convoy } from './api';
+import { fetchBoard, fetchIssue, fetchTown, fetchTownStatus, fetchMolecules, fetchConvoys } from './api';
 import DependencyGraph from './components/DependencyGraph';
 import './App.css';
 
@@ -316,7 +316,95 @@ function MoleculeCard({ molecule }: { molecule: Molecule }) {
   );
 }
 
-function TownView({ town, status, molecules }: { town: Town | null; status: TownStatus | null; molecules: Molecule[] }) {
+function ConvoyCard({ convoy }: { convoy: Convoy }) {
+  const statusIcons: Record<string, string> = {
+    pending: '⏳',
+    in_progress: '🚚',
+    complete: '✅',
+    blocked: '🚫',
+    failed: '❌',
+  };
+
+  const progressPercent = convoy.total > 0
+    ? Math.round((convoy.completed / convoy.total) * 100)
+    : convoy.progress;
+
+  const priorityColors: Record<string, string> = {
+    critical: '#ef4444',
+    high: '#f59e0b',
+    medium: '#3b82f6',
+    low: '#6b7280',
+  };
+
+  return (
+    <div className={`convoy-card-enhanced ${convoy.status === 'blocked' || convoy.status === 'failed' ? 'convoy-blocked' : ''}`}>
+      <div className="convoy-header-enhanced">
+        <span className="convoy-icon">{statusIcons[convoy.status] || '📦'}</span>
+        <div className="convoy-title-area">
+          <div className="convoy-title-enhanced">{convoy.title}</div>
+          <div className="convoy-subtitle">
+            <span className="convoy-id-badge">{convoy.id}</span>
+            {convoy.rig && <span className="convoy-rig">📦 {convoy.rig}</span>}
+            {convoy.priority && (
+              <span
+                className="convoy-priority-badge"
+                style={{ backgroundColor: priorityColors[convoy.priority] || '#6b7280' }}
+              >
+                {convoy.priority}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="convoy-progress-bar">
+        <div
+          className="convoy-progress-fill"
+          style={{ width: `${progressPercent}%` }}
+        />
+      </div>
+
+      <div className="convoy-stats">
+        <div className="convoy-stat">
+          <span className="stat-value">{convoy.completed}</span>
+          <span className="stat-label">Done</span>
+        </div>
+        <div className="convoy-stat">
+          <span className="stat-value">{convoy.in_progress}</span>
+          <span className="stat-label">Active</span>
+        </div>
+        <div className="convoy-stat">
+          <span className="stat-value">{convoy.blocked}</span>
+          <span className="stat-label">Blocked</span>
+        </div>
+        <div className="convoy-stat">
+          <span className="stat-value">{convoy.total - convoy.completed - convoy.in_progress - convoy.blocked}</span>
+          <span className="stat-label">Pending</span>
+        </div>
+      </div>
+
+      <div className="convoy-meta">
+        <StatusBadge status={convoy.status} />
+        <span className="convoy-progress-text">{progressPercent}% complete</span>
+        <span className="convoy-issue-count">{convoy.total} issues</span>
+      </div>
+
+      {convoy.agents && convoy.agents.length > 0 && (
+        <div className="convoy-agents">
+          <span className="convoy-agents-label">Agents:</span>
+          {convoy.agents.slice(0, 3).map((agent, i) => (
+            <span key={i} className="convoy-agent-badge">🤖 {agent}</span>
+          ))}
+          {convoy.agents.length > 3 && (
+            <span className="convoy-agent-more">+{convoy.agents.length - 3} more</span>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TownView({ town, status, molecules, convoys }: { town: Town | null; status: TownStatus | null; molecules: Molecule[]; convoys: Convoy[] }) {
   if (!town) {
     return (
       <div className="town-empty">
@@ -387,18 +475,12 @@ function TownView({ town, status, molecules }: { town: Town | null; status: Town
       </div>
 
       {/* Convoys */}
-      {town.convoys && town.convoys.length > 0 && (
+      {convoys.length > 0 && (
         <div className="town-convoys">
-          <h3>Active Convoys</h3>
-          <div className="convoys-list">
-            {town.convoys.map((convoy) => (
-              <div key={convoy.id} className="convoy-card">
-                <div className="convoy-header">
-                  <span className="convoy-title">{convoy.title}</span>
-                  <span className="convoy-progress">{convoy.progress}/{convoy.total}</span>
-                </div>
-                <div className="convoy-id">{convoy.id}</div>
-              </div>
+          <h3>Active Convoys ({convoys.length})</h3>
+          <div className="convoys-grid">
+            {convoys.map((convoy) => (
+              <ConvoyCard key={convoy.id} convoy={convoy} />
             ))}
           </div>
         </div>
@@ -414,6 +496,7 @@ function App() {
   const [town, setTown] = useState<Town | null>(null);
   const [townStatus, setTownStatus] = useState<TownStatus | null>(null);
   const [molecules, setMolecules] = useState<Molecule[]>([]);
+  const [convoys, setConvoys] = useState<Convoy[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -425,16 +508,18 @@ function App() {
 
   async function loadData() {
     try {
-      const [boardData, townData, statusData, moleculesData] = await Promise.all([
+      const [boardData, townData, statusData, moleculesData, convoysData] = await Promise.all([
         fetchBoard().catch(() => null),
         fetchTown().catch(() => null),
         fetchTownStatus().catch(() => null),
         fetchMolecules().catch(() => null),
+        fetchConvoys().catch(() => null),
       ]);
       if (boardData) setBoard(boardData);
       setTown(townData);
       setTownStatus(statusData);
       setMolecules(moleculesData?.molecules || []);
+      setConvoys(convoysData?.convoys || []);
       setError(null);
     } catch {
       setError('Failed to connect to daemon. Is gvid running on localhost:7070?');
@@ -519,7 +604,7 @@ function App() {
       )}
 
       {viewMode === 'gastown' && (
-        <TownView town={town} status={townStatus} molecules={molecules} />
+        <TownView town={town} status={townStatus} molecules={molecules} convoys={convoys} />
       )}
 
       {selectedIssue && (

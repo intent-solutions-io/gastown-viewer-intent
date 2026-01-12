@@ -542,6 +542,176 @@
   font-family: monospace;
 }
 
+/* Enhanced Convoy Card */
+.convoys-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 1rem;
+}
+
+.convoy-card-enhanced {
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  padding: 1rem;
+}
+
+.convoy-card-enhanced.convoy-blocked {
+  border-color: #ef4444;
+  background: linear-gradient(135deg, #1e293b 0%, #2a1515 100%);
+}
+
+.convoy-header-enhanced {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.convoy-icon {
+  font-size: 1.5rem;
+  width: 2.5rem;
+  height: 2.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #0f172a;
+  border-radius: 6px;
+}
+
+.convoy-title-area {
+  flex: 1;
+  min-width: 0;
+}
+
+.convoy-title-enhanced {
+  font-weight: 600;
+  color: #f8fafc;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 0.25rem;
+}
+
+.convoy-subtitle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.convoy-id-badge {
+  font-size: 0.7rem;
+  color: #64748b;
+  font-family: monospace;
+  background: #0f172a;
+  padding: 0.125rem 0.375rem;
+  border-radius: 4px;
+}
+
+.convoy-rig {
+  font-size: 0.75rem;
+  color: #60a5fa;
+}
+
+.convoy-priority-badge {
+  font-size: 0.625rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  padding: 0.125rem 0.375rem;
+  border-radius: 4px;
+  color: white;
+}
+
+.convoy-progress-bar {
+  height: 8px;
+  background: #334155;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 0.75rem;
+}
+
+.convoy-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #10b981 0%, #34d399 100%);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.convoy-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  padding: 0.5rem;
+  background: #0f172a;
+  border-radius: 6px;
+}
+
+.convoy-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.125rem;
+}
+
+.convoy-stat .stat-value {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #f8fafc;
+}
+
+.convoy-stat .stat-label {
+  font-size: 0.625rem;
+  color: #64748b;
+  text-transform: uppercase;
+}
+
+.convoy-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.convoy-progress-text {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #10b981;
+}
+
+.convoy-issue-count {
+  font-size: 0.75rem;
+  color: #94a3b8;
+}
+
+.convoy-agents {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  padding-top: 0.5rem;
+  border-top: 1px solid #334155;
+}
+
+.convoy-agents-label {
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.convoy-agent-badge {
+  font-size: 0.75rem;
+  color: #60a5fa;
+  background: #0f172a;
+  padding: 0.125rem 0.375rem;
+  border-radius: 4px;
+}
+
+.convoy-agent-more {
+  font-size: 0.75rem;
+  color: #64748b;
+  font-style: italic;
+}
+
 /* Dependency Graph */
 .dependency-graph {
   padding: 1rem;

@@ -88,16 +88,34 @@ func (a *Agent) Address() string {
 	}
 }
 
+// ConvoyStatus represents the status of a convoy.
+type ConvoyStatus string
+
+const (
+	ConvoyStatusPending    ConvoyStatus = "pending"
+	ConvoyStatusInProgress ConvoyStatus = "in_progress"
+	ConvoyStatusComplete   ConvoyStatus = "complete"
+	ConvoyStatusBlocked    ConvoyStatus = "blocked"
+	ConvoyStatusFailed     ConvoyStatus = "failed"
+)
+
 // Convoy represents a batch of tracked work.
 type Convoy struct {
-	ID          string    `json:"id"`
-	Title       string    `json:"title"`
-	Status      string    `json:"status"`
-	Issues      []string  `json:"issues"`
-	Progress    int       `json:"progress"`
-	Total       int       `json:"total"`
-	CreatedAt   time.Time `json:"created_at,omitempty"`
-	Subscribers []string  `json:"subscribers,omitempty"`
+	ID          string       `json:"id"`
+	Title       string       `json:"title"`
+	Status      ConvoyStatus `json:"status"`
+	Priority    string       `json:"priority,omitempty"`
+	Rig         string       `json:"rig,omitempty"`
+	Issues      []string     `json:"issues"`
+	Progress    int          `json:"progress"`
+	Total       int          `json:"total"`
+	Completed   int          `json:"completed"`
+	Blocked     int          `json:"blocked"`
+	InProgress  int          `json:"in_progress"`
+	CreatedAt   time.Time    `json:"created_at,omitempty"`
+	UpdatedAt   time.Time    `json:"updated_at,omitempty"`
+	Subscribers []string     `json:"subscribers,omitempty"`
+	Agents      []string     `json:"agents,omitempty"`
 }
 
 // Message represents a mail message between agents.

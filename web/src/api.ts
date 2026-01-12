@@ -156,13 +156,24 @@ export interface Rig {
   crew: Agent[];
 }
 
+export type ConvoyStatus = 'pending' | 'in_progress' | 'complete' | 'blocked' | 'failed';
+
 export interface Convoy {
   id: string;
   title: string;
-  status: string;
+  status: ConvoyStatus;
+  priority?: string;
+  rig?: string;
   issues: string[];
   progress: number;
   total: number;
+  completed: number;
+  blocked: number;
+  in_progress: number;
+  created_at?: string;
+  updated_at?: string;
+  subscribers?: string[];
+  agents?: string[];
 }
 
 export interface Town {
@@ -199,6 +210,10 @@ export interface RigsResponse {
 export interface ConvoysResponse {
   convoys: Convoy[];
   total: number;
+  in_progress: number;
+  pending: number;
+  complete: number;
+  blocked: number;
 }
 
 // Gas Town API calls
@@ -229,6 +244,12 @@ export async function fetchAgents(): Promise<AgentsResponse> {
 
 export async function fetchConvoys(): Promise<ConvoysResponse> {
   const res = await fetch(`${API_BASE}/town/convoys`);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+export async function fetchConvoy(id: string): Promise<Convoy> {
+  const res = await fetch(`${API_BASE}/town/convoys/${encodeURIComponent(id)}`);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
 }

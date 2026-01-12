@@ -105,10 +105,48 @@ func (s *Server) handleConvoys(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Group by status
+	var inProgress, pending, complete, blocked int
+	for _, c := range convoys {
+		switch c.Status {
+		case gastown.ConvoyStatusInProgress:
+			inProgress++
+		case gastown.ConvoyStatusPending:
+			pending++
+		case gastown.ConvoyStatusComplete:
+			complete++
+		case gastown.ConvoyStatusBlocked, gastown.ConvoyStatusFailed:
+			blocked++
+		}
+	}
+
 	writeJSON(w, http.StatusOK, map[string]interface{}{
-		"convoys": convoys,
-		"total":   len(convoys),
+		"convoys":     convoys,
+		"total":       len(convoys),
+		"in_progress": inProgress,
+		"pending":     pending,
+		"complete":    complete,
+		"blocked":     blocked,
 	})
+}
+
+// handleConvoy handles GET /api/v1/town/convoys/{id}.
+func (s *Server) handleConvoy(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	id := r.PathValue("id")
+
+	if id == "" {
+		writeError(w, http.StatusBadRequest, "INVALID_PARAM", "convoy ID required")
+		return
+	}
+
+	convoy, err := s.gtAdapter.Convoy(ctx, id)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "CONVOY_NOT_FOUND", err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, convoy)
 }
 
 // handleMail handles GET /api/v1/town/mail/{address}.

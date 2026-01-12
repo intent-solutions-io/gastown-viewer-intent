@@ -31,6 +31,9 @@ type Adapter interface {
 	// Convoys returns active convoys.
 	Convoys(ctx context.Context) ([]Convoy, error)
 
+	// Convoy returns a specific convoy by ID.
+	Convoy(ctx context.Context, id string) (*Convoy, error)
+
 	// Molecules returns all active molecules across all agents.
 	Molecules(ctx context.Context) ([]Molecule, error)
 
@@ -337,17 +340,131 @@ func (a *FSAdapter) Convoys(ctx context.Context) ([]Convoy, error) {
 		return nil, nil
 	}
 
-	var convoys []Convoy
-	if err := json.Unmarshal(output, &convoys); err != nil {
+	var rawConvoys []struct {
+		ID          string   `json:"id"`
+		Title       string   `json:"title"`
+		Status      string   `json:"status"`
+		Priority    string   `json:"priority,omitempty"`
+		Rig         string   `json:"rig,omitempty"`
+		Issues      []string `json:"issues"`
+		Progress    int      `json:"progress"`
+		Total       int      `json:"total"`
+		Completed   int      `json:"completed"`
+		Blocked     int      `json:"blocked"`
+		InProgress  int      `json:"in_progress"`
+		CreatedAt   string   `json:"created_at,omitempty"`
+		UpdatedAt   string   `json:"updated_at,omitempty"`
+		Subscribers []string `json:"subscribers,omitempty"`
+		Agents      []string `json:"agents,omitempty"`
+	}
+
+	if err := json.Unmarshal(output, &rawConvoys); err != nil {
 		// Try parsing as single convoy
-		var convoy Convoy
-		if err := json.Unmarshal(output, &convoy); err != nil {
+		var raw struct {
+			ID          string   `json:"id"`
+			Title       string   `json:"title"`
+			Status      string   `json:"status"`
+			Priority    string   `json:"priority,omitempty"`
+			Rig         string   `json:"rig,omitempty"`
+			Issues      []string `json:"issues"`
+			Progress    int      `json:"progress"`
+			Total       int      `json:"total"`
+			Completed   int      `json:"completed"`
+			Blocked     int      `json:"blocked"`
+			InProgress  int      `json:"in_progress"`
+			CreatedAt   string   `json:"created_at,omitempty"`
+			UpdatedAt   string   `json:"updated_at,omitempty"`
+			Subscribers []string `json:"subscribers,omitempty"`
+			Agents      []string `json:"agents,omitempty"`
+		}
+		if err := json.Unmarshal(output, &raw); err != nil {
 			return nil, nil
 		}
+		rawConvoys = append(rawConvoys, raw)
+	}
+
+	var convoys []Convoy
+	for _, r := range rawConvoys {
+		convoy := a.parseRawConvoy(r.ID, r.Title, r.Status, r.Priority, r.Rig,
+			r.Issues, r.Progress, r.Total, r.Completed, r.Blocked, r.InProgress,
+			r.CreatedAt, r.UpdatedAt, r.Subscribers, r.Agents)
 		convoys = append(convoys, convoy)
 	}
 
 	return convoys, nil
+}
+
+// Convoy returns a specific convoy by ID.
+func (a *FSAdapter) Convoy(ctx context.Context, id string) (*Convoy, error) {
+	convoys, err := a.Convoys(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, convoy := range convoys {
+		if convoy.ID == id {
+			return &convoy, nil
+		}
+	}
+
+	return nil, fmt.Errorf("convoy not found: %s", id)
+}
+
+// parseRawConvoy converts raw convoy data to a Convoy struct.
+func (a *FSAdapter) parseRawConvoy(id, title, status, priority, rig string,
+	issues []string, progress, total, completed, blocked, inProgress int,
+	createdAt, updatedAt string, subscribers, agents []string) Convoy {
+
+	// Convert status string to ConvoyStatus
+	convoyStatus := ConvoyStatusPending
+	switch status {
+	case "in_progress":
+		convoyStatus = ConvoyStatusInProgress
+	case "complete", "completed":
+		convoyStatus = ConvoyStatusComplete
+	case "blocked":
+		convoyStatus = ConvoyStatusBlocked
+	case "failed":
+		convoyStatus = ConvoyStatusFailed
+	}
+
+	convoy := Convoy{
+		ID:          id,
+		Title:       title,
+		Status:      convoyStatus,
+		Priority:    priority,
+		Rig:         rig,
+		Issues:      issues,
+		Progress:    progress,
+		Total:       total,
+		Completed:   completed,
+		Blocked:     blocked,
+		InProgress:  inProgress,
+		Subscribers: subscribers,
+		Agents:      agents,
+	}
+
+	// Parse timestamps
+	if createdAt != "" {
+		if t, err := time.Parse(time.RFC3339, createdAt); err == nil {
+			convoy.CreatedAt = t
+		}
+	}
+	if updatedAt != "" {
+		if t, err := time.Parse(time.RFC3339, updatedAt); err == nil {
+			convoy.UpdatedAt = t
+		}
+	}
+
+	// Calculate progress if not provided
+	if convoy.Total == 0 && len(convoy.Issues) > 0 {
+		convoy.Total = len(convoy.Issues)
+	}
+	if convoy.Total > 0 && convoy.Progress == 0 {
+		convoy.Progress = (convoy.Completed * 100) / convoy.Total
+	}
+
+	return convoy
 }
 
 // Mail returns messages for an agent address.
