@@ -3,8 +3,8 @@ version: 2
 
 before:
   hooks:
-    - cd web && npm ci && npm run build
-    - rm -rf internal/api/web_dist && cp -r web/dist internal/api/web_dist
+    - sh -c "cd web && npm ci && npm run build"
+    - sh -c "rm -rf internal/api/web_dist && cp -r web/dist internal/api/web_dist"
     - go mod tidy
 
 builds:
