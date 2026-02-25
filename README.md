@@ -5,35 +5,20 @@
 [![Release](https://img.shields.io/github/v/release/intent-solutions-io/gastown-viewer-intent)](https://github.com/intent-solutions-io/gastown-viewer-intent/releases)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-## What's New in v0.3.0
+## What's New in v0.4.0
 
-Four best-in-class features that set this apart from any open-source alternative:
+### Embedded Web UI
+- **Single binary serves everything** — `gvid` now bundles the React dashboard via `go:embed`
+- No more separate `npm install && npm run dev` — just run `gvid` and open `http://localhost:7070`
+- `go install`, `brew install`, and direct downloads all include the full web UI
+- Development workflow preserved: `make dev` still runs Vite hot reload with API proxy
 
-### Convoy Dashboard (New!)
-- Track batch work progress across multiple rigs
-- Visual progress bar with Done/Active/Blocked/Pending counts
-- Priority badges with color coding (critical, high, medium, low)
-- Assigned agents display for each convoy
-- Individual convoy detail endpoint
+### Previous Highlights (v0.3.0)
 
-### Interactive Dependency Graph
-- D3.js force-directed visualization of all **14 Beads edge types**
-- Click nodes to view issue details
-- Drag, zoom, and pan interactions
-- Export to DOT format for Graphviz
-
-### Smart Agent Status Dashboard
-- Real-time agent status with intelligent detection
-- **Active** / **Idle** (2+ min) / **Stuck** (10+ min) states
-- Tmux session integration
-- Hook attachment indicators showing active work
-- Current molecule and last activity timestamps
-
-### Molecule Progress Tracker
-- Workflow execution visibility across agents
-- Visual progress bar with percentage
-- Step-by-step completion tracking
-- Formula template and assigned agent context
+- **Convoy Dashboard**: Batch work progress with Done/Active/Blocked/Pending counts
+- **Interactive Dependency Graph**: D3.js force-directed visualization of all 14 Beads edge types
+- **Smart Agent Status**: Active/Idle/Stuck detection with tmux integration
+- **Molecule Progress Tracker**: Workflow step-by-step completion tracking
 
 ---
 
@@ -81,13 +66,13 @@ For development:
 
 ```bash
 # If installed via brew/binary:
-gvid                          # Start daemon on :7070
+gvid                          # Start daemon + web UI on :7070
 
-# For development (daemon + web UI with hot reload):
-make dev                      # Opens http://localhost:5173
+# For development (hot reload):
+make dev                      # Vite on :5173, API proxied to :7070
 ```
 
-Open http://localhost:5173 and switch between tabs:
+Open http://localhost:7070 (or http://localhost:5173 during development) and switch between tabs:
 - **Board** - Kanban view of Beads issues
 - **Graph** - Interactive dependency visualization
 - **Gas Town** - Agent dashboard with molecules
