@@ -51,17 +51,9 @@ Both adapters are interface-based for testability. The `Server` (`internal/api/s
 - **No external router**: Uses stdlib `net/http.ServeMux` with Go 1.22+ pattern matching. No Gin/Chi/Echo.
 - **CORS**: Configured for `http://localhost:5173` in development via middleware.
 
-## Testing Patterns
+## Testing
 
-Tests use `MockExecutor` to simulate `bd` CLI output without requiring `bd` installed:
-
-```go
-mock := beads.NewMockExecutor()
-mock.SetResponse("list --json", []byte(`[{"id":"1","title":"test"}]`))
-adapter := beads.NewCLIAdapterWithExecutor("", mock)
-```
-
-The gastown adapter test uses `FSAdapter` with a temp directory structure mimicking `~/gt`.
+Prefer integration tests that hit the real `bd` CLI over mocks. Parser tests (`parser_test.go`) test pure functions and need no CLI. Adapter tests should use `DefaultExecutor` against real beads state when possible. `MockExecutor` exists but is a last resort, not the default approach.
 
 ## API Routes
 
