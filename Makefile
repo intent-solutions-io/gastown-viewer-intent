@@ -1,4 +1,4 @@
-.PHONY: dev test build clean help daemon web tui release release-snapshot install
+.PHONY: dev test build clean help daemon web tui release release-snapshot install ensure-web-dist
 
 # Default target
 help:
@@ -21,8 +21,13 @@ dev:
 	@echo ""
 	@$(MAKE) -j2 daemon web
 
+# Ensure web_dist stub exists for go:embed (no-op if already present)
+ensure-web-dist:
+	@mkdir -p internal/api/web_dist
+	@test -f internal/api/web_dist/index.html || echo '<!DOCTYPE html><html><body><p>Run <code>make build</code> to bundle the web UI.</p></body></html>' > internal/api/web_dist/index.html
+
 # Run daemon
-daemon:
+daemon: ensure-web-dist
 	go run ./cmd/gvid
 
 # Run web dev server
@@ -34,21 +39,25 @@ tui:
 	go run ./cmd/gvi-tui
 
 # Run tests
-test:
+test: ensure-web-dist
 	@echo "=== Go Tests ==="
 	go test -v ./...
 	@echo ""
 	@echo "=== Web Lint ==="
 	cd web && npm run lint 2>/dev/null || echo "Web lint not configured yet"
 
-# Build all
+# Build all (web first — Go embed needs web/dist/)
 build:
+	@echo "=== Building Web ==="
+	cd web && npm run build
+	@echo ""
+	@echo "=== Copying web dist for embed ==="
+	rm -rf internal/api/web_dist
+	cp -r web/dist internal/api/web_dist
+	@echo ""
 	@echo "=== Building Go binaries ==="
 	go build -o bin/gvid ./cmd/gvid
 	go build -o bin/gvi-tui ./cmd/gvi-tui
-	@echo ""
-	@echo "=== Building Web ==="
-	cd web && npm run build
 	@echo ""
 	@echo "Build complete. Binaries in ./bin/"
 
@@ -57,6 +66,7 @@ clean:
 	rm -rf bin/
 	rm -rf dist/
 	rm -rf web/dist/
+	rm -rf internal/api/web_dist/
 	go clean ./...
 
 # Release with goreleaser

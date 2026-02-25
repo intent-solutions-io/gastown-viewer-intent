@@ -93,6 +93,9 @@ func (s *Server) registerRoutes() {
 
 	// Gas Town - Mail
 	s.mux.HandleFunc("GET /api/v1/town/mail/{address}", s.handleMail)
+
+	// Static files — catch-all after API routes
+	s.serveStaticFiles()
 }
 
 // Handler returns the HTTP handler with middleware applied.

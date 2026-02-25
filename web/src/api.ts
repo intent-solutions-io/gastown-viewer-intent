@@ -1,6 +1,6 @@
 // API client for gvid daemon
 
-const API_BASE = 'http://localhost:7070/api/v1';
+const API_BASE = '/api/v1';
 
 export type Status = 'pending' | 'in_progress' | 'done' | 'blocked';
 export type Priority = 'critical' | 'high' | 'medium' | 'low';
