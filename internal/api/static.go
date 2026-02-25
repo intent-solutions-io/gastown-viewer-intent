@@ -23,22 +23,15 @@ func (s *Server) serveStaticFiles() {
 
 	fileServer := http.FileServer(http.FS(sub))
 
-	s.mux.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {
+	s.mux.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Let API routes pass through (they're registered with higher priority)
 		if strings.HasPrefix(r.URL.Path, "/api/") {
 			http.NotFound(w, r)
 			return
 		}
 
-		// Try to serve the exact file
-		path := r.URL.Path
-		if path == "/" {
-			fileServer.ServeHTTP(w, r)
-			return
-		}
-
 		// Check if the file exists in the embedded FS
-		cleanPath := strings.TrimPrefix(path, "/")
+		cleanPath := strings.TrimPrefix(r.URL.Path, "/")
 		if f, err := sub.Open(cleanPath); err == nil {
 			f.Close()
 			fileServer.ServeHTTP(w, r)
@@ -48,5 +41,5 @@ func (s *Server) serveStaticFiles() {
 		// SPA fallback: serve index.html for client-side routing
 		r.URL.Path = "/"
 		fileServer.ServeHTTP(w, r)
-	})
+	}))
 }

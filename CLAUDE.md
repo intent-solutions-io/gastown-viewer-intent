@@ -13,9 +13,9 @@ make dev              # Daemon (localhost:7070) + web (localhost:5173) in parall
 make daemon           # Daemon only
 make web              # Web dev server only (Vite hot reload)
 make tui              # TUI client (requires running daemon)
-make build            # Build Go binaries to bin/ + web to web/dist/
+make build            # Build web, copy to internal/api/web_dist, then build Go binaries
 make test             # Go tests + web lint
-make clean            # Remove bin/, dist/, web/dist/
+make clean            # Remove bin/, dist/, web/dist/, internal/api/web_dist/
 
 # Go tests
 go test -v ./...                         # All tests
